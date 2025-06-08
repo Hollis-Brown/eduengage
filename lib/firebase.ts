@@ -4,26 +4,26 @@ import { getFirestore } from "firebase/firestore"
 import { getDatabase } from "firebase/database"
 import { getMessaging, isSupported } from "firebase/messaging"
 
-// Firebase configuration
+// Firebase configuration with fallback values
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyA28_F5hTddrFsAmByHSKBUuXjkEKxlkpw",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "eduengage-a42e6.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "eduengage-a42e6",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "eduengage-a42e6.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "183260675335",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:183260675335:web:ebd798214b67a1c54699a2",
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "https://eduengage-a42e6-default-rtdb.firebaseio.com/",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-EW5M1XWQNC",
 }
 
-// Validate that all required config values are present
-const requiredConfigKeys = ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]
-const missingKeys = requiredConfigKeys.filter((key) => !firebaseConfig[key as keyof typeof firebaseConfig])
-
-if (missingKeys.length > 0) {
-  console.error("Missing Firebase configuration keys:", missingKeys)
-  console.error("Please check your .env.local file in the project root")
-  throw new Error(`Missing Firebase configuration: ${missingKeys.join(", ")}`)
+// Debug logging (only in development)
+if (process.env.NODE_ENV === "development") {
+  console.log("Firebase config check:", {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasAuthDomain: !!firebaseConfig.authDomain,
+    hasProjectId: !!firebaseConfig.projectId,
+    projectId: firebaseConfig.projectId,
+  })
 }
 
 // Initialize Firebase
