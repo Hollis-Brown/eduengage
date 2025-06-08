@@ -2,14 +2,22 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
-import { useAuthContext } from "@/contexts/auth-context"
-import { sendMessage, subscribeToMessages, type Message } from "@/lib/firebase-messaging"
+import { useState, useRef } from "react"
+import { useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send, MessageCircle } from "lucide-react"
+
+interface Message {
+  id: string
+  text: string
+  userId: string
+  userName: string
+  timestamp: Date
+  roomId: string
+}
 
 interface MessagingProps {
   roomId: string
@@ -17,48 +25,45 @@ interface MessagingProps {
 }
 
 export function Messaging({ roomId, roomName }: MessagingProps) {
-  const { user } = useAuthContext()
+  const { user, isSignedIn } = useUser()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!roomId) return
-
-    const unsubscribe = subscribeToMessages(roomId, (newMessages) => {
-      setMessages(newMessages)
-      // Auto-scroll to bottom
-      setTimeout(() => {
-        if (scrollAreaRef.current) {
-          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
-        }
-      }, 100)
-    })
-
-    return unsubscribe
-  }, [roomId])
-
+  // Simulate real-time messaging with local state for demo
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newMessage.trim() || !user) return
 
     setIsLoading(true)
-    try {
-      await sendMessage(roomId, newMessage.trim(), user.uid, user.displayName || "Anonymous")
-      setNewMessage("")
-    } catch (error) {
-      console.error("Error sending message:", error)
-    } finally {
-      setIsLoading(false)
+
+    const message: Message = {
+      id: Date.now().toString(),
+      text: newMessage.trim(),
+      userId: user.id,
+      userName: user.firstName || "Anonymous",
+      timestamp: new Date(),
+      roomId,
     }
+
+    setMessages((prev) => [...prev, message])
+    setNewMessage("")
+    setIsLoading(false)
+
+    // Auto-scroll to bottom
+    setTimeout(() => {
+      if (scrollAreaRef.current) {
+        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+      }
+    }, 100)
   }
 
-  if (!user) {
+  if (!isSignedIn) {
     return (
       <Card>
         <CardContent className="p-6 text-center">
-          <p>Please log in to participate in the chat.</p>
+          <p>Please sign in to participate in the chat.</p>
         </CardContent>
       </Card>
     )
@@ -81,13 +86,13 @@ export function Messaging({ roomId, roomName }: MessagingProps) {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.userId === user.uid ? "justify-end" : "justify-start"}`}
+                className={`flex gap-3 ${message.userId === user?.id ? "justify-end" : "justify-start"}`}
               >
-                <div className={`max-w-[80%] ${message.userId === user.uid ? "text-right" : "text-left"}`}>
+                <div className={`max-w-[80%] ${message.userId === user?.id ? "text-right" : "text-left"}`}>
                   <div className="text-xs text-muted-foreground mb-1">{message.userName}</div>
                   <div
                     className={`rounded-lg px-3 py-2 ${
-                      message.userId === user.uid
+                      message.userId === user?.id
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary text-secondary-foreground"
                     }`}
