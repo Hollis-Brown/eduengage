@@ -1,16 +1,9 @@
 import { Resend } from "resend"
-import { auth } from "@clerk/nextjs/server"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth()
-
-    if (!userId) {
-      return new Response("Unauthorized", { status: 401 })
-    }
-
     const { to, subject, message } = await req.json()
 
     const data = await resend.emails.send({

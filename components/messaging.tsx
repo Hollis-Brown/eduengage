@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useAuthContext } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,7 +25,7 @@ interface MessagingProps {
 }
 
 export function Messaging({ roomId, roomName }: MessagingProps) {
-  const { user, isSignedIn } = useUser()
+  const { user } = useAuthContext()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -41,8 +41,8 @@ export function Messaging({ roomId, roomName }: MessagingProps) {
     const message: Message = {
       id: Date.now().toString(),
       text: newMessage.trim(),
-      userId: user.id,
-      userName: user.firstName || "Anonymous",
+      userId: user.uid,
+      userName: user.displayName || user.email?.split("@")[0] || "Anonymous",
       timestamp: new Date(),
       roomId,
     }
@@ -59,7 +59,7 @@ export function Messaging({ roomId, roomName }: MessagingProps) {
     }, 100)
   }
 
-  if (!isSignedIn) {
+  if (!user) {
     return (
       <Card>
         <CardContent className="p-6 text-center">
@@ -86,13 +86,13 @@ export function Messaging({ roomId, roomName }: MessagingProps) {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.userId === user?.id ? "justify-end" : "justify-start"}`}
+                className={`flex gap-3 ${message.userId === user.uid ? "justify-end" : "justify-start"}`}
               >
-                <div className={`max-w-[80%] ${message.userId === user?.id ? "text-right" : "text-left"}`}>
+                <div className={`max-w-[80%] ${message.userId === user.uid ? "text-right" : "text-left"}`}>
                   <div className="text-xs text-muted-foreground mb-1">{message.userName}</div>
                   <div
                     className={`rounded-lg px-3 py-2 ${
-                      message.userId === user?.id
+                      message.userId === user.uid
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary text-secondary-foreground"
                     }`}

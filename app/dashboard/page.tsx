@@ -1,19 +1,37 @@
-import { auth } from "@clerk/nextjs/server"
-import { redirect } from "next/navigation"
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuthContext } from "@/contexts/auth-context"
 import { Header } from "@/components/header"
 import { AnalyticsDashboard } from "@/components/analytics-dashboard"
 import { AIAssistant } from "@/components/ai-assistant"
 import { Messaging } from "@/components/messaging"
 import { VideoCall } from "@/components/video-call"
 import { WorkflowBuilder } from "@/components/workflow-builder"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EmailSender } from "@/components/email-sender"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-export default async function DashboardPage() {
-  const { userId } = await auth()
+export default function DashboardPage() {
+  const { user, loading } = useAuthContext()
+  const router = useRouter()
 
-  if (!userId) {
-    redirect("/sign-in")
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login")
+    }
+  }, [user, loading, router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
   }
 
   return (
