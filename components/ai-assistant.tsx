@@ -83,58 +83,59 @@ export function AIAssistant({ isOpen, onClose, userRole }: AIAssistantProps) {
     setInputMessage("")
     setIsTyping(true)
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(inputMessage)
+    // Get real AI response
+    try {
+      const aiResponse = await generateAIResponse(inputMessage)
       setMessages((prev) => [...prev, aiResponse])
+    } catch (error) {
+      console.error("Error getting AI response:", error)
+      const errorMessage: Message = {
+        id: messages.length + 2,
+        type: "ai",
+        content: "I'm sorry, I encountered an error. Please try again.",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
       setIsTyping(false)
-    }, 1500)
+    }
   }
 
-  const generateAIResponse = (userInput: string): Message => {
-    const input = userInput.toLowerCase()
+  const generateAIResponse = async (userInput: string): Promise<Message> => {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: userInput }],
+          context: `${userRole} user asking about: ${userInput}`,
+        }),
+      })
 
-    let response = ""
-    let suggestions: string[] = []
+      if (!response.ok) {
+        throw new Error("Failed to get AI response")
+      }
 
-    if (input.includes("math") || input.includes("calculus") || input.includes("algebra")) {
-      response =
-        "I'd be happy to help with mathematics! I can explain concepts step-by-step, solve problems, and create practice exercises. What specific topic would you like to explore?"
-      suggestions = [
-        "Explain derivatives",
-        "Solve quadratic equations",
-        "Create practice problems",
-        "Show graphing techniques",
-      ]
-    } else if (input.includes("study") || input.includes("schedule") || input.includes("plan")) {
-      response =
-        "Let me help you create an effective study plan! Based on your learning patterns and upcoming deadlines, I can suggest an optimized schedule. What subjects are you focusing on?"
-      suggestions = ["Create weekly schedule", "Set study reminders", "Track progress", "Optimize study times"]
-    } else if (input.includes("science") || input.includes("physics") || input.includes("chemistry")) {
-      response =
-        "Science is fascinating! I can help explain complex concepts with interactive examples and visual aids. Which area of science interests you most?"
-      suggestions = [
-        "Explain atomic structure",
-        "Show physics simulations",
-        "Create lab reports",
-        "Generate quiz questions",
-      ]
-    } else if (input.includes("write") || input.includes("essay") || input.includes("paper")) {
-      response =
-        "I can assist with writing! From brainstorming ideas to structuring arguments and polishing your prose. What type of writing project are you working on?"
-      suggestions = ["Outline an essay", "Improve grammar", "Generate ideas", "Check citations"]
-    } else {
-      response =
-        "That's an interesting question! I'm here to help with any academic topic. I can provide explanations, create study materials, answer questions, and even help with creative projects. How can I assist you further?"
-      suggestions = ["Ask about any subject", "Get homework help", "Create flashcards", "Practice presentations"]
-    }
+      const data = await response.json()
 
-    return {
-      id: messages.length + 2,
-      type: "ai",
-      content: response,
-      timestamp: new Date(),
-      suggestions,
+      return {
+        id: messages.length + 2,
+        type: "ai",
+        content: data.response,
+        timestamp: new Date(),
+        suggestions: data.suggestions,
+      }
+    } catch (error) {
+      console.error("AI response error:", error)
+      return {
+        id: messages.length + 2,
+        type: "ai",
+        content: "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.",
+        timestamp: new Date(),
+        suggestions: ["Try again", "Ask a different question", "Check connection"],
+      }
     }
   }
 

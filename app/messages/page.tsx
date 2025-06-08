@@ -28,124 +28,13 @@ import {
   Mic,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-
-const messagesData = {
-  conversations: [
-    {
-      id: "1",
-      name: "Dr. Sarah Johnson",
-      role: "Mathematics Professor",
-      lastMessage: "Great progress on your calculus assignment!",
-      timestamp: "2 min ago",
-      unread: 2,
-      online: true,
-      avatar: "/placeholder.svg?height=40&width=40",
-      type: "direct",
-    },
-    {
-      id: "2",
-      name: "Advanced Math Study Group",
-      participants: 12,
-      lastMessage: "Mike: Can someone help with problem 15?",
-      timestamp: "5 min ago",
-      unread: 0,
-      avatar: "/placeholder.svg?height=40&width=40",
-      type: "group",
-    },
-    {
-      id: "3",
-      name: "AI Learning Assistant",
-      role: "AI Tutor",
-      lastMessage: "I've prepared some practice problems for you",
-      timestamp: "10 min ago",
-      unread: 1,
-      online: true,
-      avatar: "/placeholder.svg?height=40&width=40",
-      type: "ai",
-    },
-    {
-      id: "4",
-      name: "Physics Lab Team",
-      participants: 6,
-      lastMessage: "Emma: Lab report is due tomorrow",
-      timestamp: "1 hour ago",
-      unread: 0,
-      avatar: "/placeholder.svg?height=40&width=40",
-      type: "group",
-    },
-    {
-      id: "5",
-      name: "Prof. Michael Chen",
-      role: "Physics Department",
-      lastMessage: "Your experiment results look promising",
-      timestamp: "2 hours ago",
-      unread: 0,
-      online: false,
-      avatar: "/placeholder.svg?height=40&width=40",
-      type: "direct",
-    },
-  ],
-  currentMessages: [
-    {
-      id: 1,
-      sender: "Dr. Sarah Johnson",
-      content:
-        "Hi! I've reviewed your latest calculus assignment. Your understanding of derivatives has really improved!",
-      timestamp: "2:30 PM",
-      type: "text",
-      status: "read",
-      isOwn: false,
-    },
-    {
-      id: 2,
-      sender: "You",
-      content: "Thank you! I've been practicing with the AI tutor every day.",
-      timestamp: "2:32 PM",
-      type: "text",
-      status: "read",
-      isOwn: true,
-    },
-    {
-      id: 3,
-      sender: "Dr. Sarah Johnson",
-      content: "That's excellent! The AI integration is really helping students grasp complex concepts.",
-      timestamp: "2:33 PM",
-      type: "text",
-      status: "read",
-      isOwn: false,
-    },
-    {
-      id: 4,
-      sender: "Dr. Sarah Johnson",
-      content: "I'm attaching some advanced problems for you to try. They're challenging but I think you're ready!",
-      timestamp: "2:34 PM",
-      type: "file",
-      fileName: "Advanced_Calculus_Problems.pdf",
-      fileSize: "2.3 MB",
-      status: "read",
-      isOwn: false,
-    },
-    {
-      id: 5,
-      sender: "You",
-      content: "Perfect! I'll work on these tonight and let you know if I need help.",
-      timestamp: "2:35 PM",
-      type: "text",
-      status: "delivered",
-      isOwn: true,
-    },
-  ],
-  aiSuggestions: [
-    "Ask about office hours",
-    "Request additional practice problems",
-    "Schedule a tutoring session",
-    "Thank for the feedback",
-  ],
-}
+import { MessagingService, type ChatMessage, type Conversation } from "@/lib/messaging-service"
 
 export default function MessagesPage() {
   const { user } = useAuth()
-  const [selectedConversation, setSelectedConversation] = useState("1")
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [currentMessages, setCurrentMessages] = useState<ChatMessage[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<string>("")
   const [newMessage, setNewMessage] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [showAISuggestions, setShowAISuggestions] = useState(true)
@@ -153,49 +42,103 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
+  // Subscribe to conversations
+  useEffect(() => {
+    if (!user?.uid) return
+
+    const unsubscribe = MessagingService.subscribeToConversations(user.uid, (conversations) => {
+      setConversations(conversations)
+      if (conversations.length > 0 && !selectedConversation) {
+        setSelectedConversation(conversations[0].id)
+      }
+    })
+
+    return unsubscribe
+  }, [user?.uid])
+
+  // Subscribe to messages in selected conversation
+  useEffect(() => {
+    if (!selectedConversation) return
+
+    const unsubscribe = MessagingService.subscribeToMessages(selectedConversation, (messages) => {
+      setCurrentMessages(messages)
+    })
+
+    return unsubscribe
+  }, [selectedConversation])
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
   useEffect(() => {
     scrollToBottom()
-  }, [messagesData.currentMessages])
+  }, [currentMessages])
 
-  const sendMessage = () => {
-    if (!newMessage.trim()) return
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !user?.uid || !selectedConversation) return
 
-    // Simulate sending message
-    setIsTyping(true)
-    toast({
-      title: "Message Sent",
-      description: "Your message has been delivered successfully.",
-    })
-    setNewMessage("")
+    try {
+      setIsTyping(true)
 
-    // Simulate AI response for AI conversations
-    if (selectedConversation === "3") {
-      setTimeout(() => {
-        setIsTyping(false)
-        toast({
-          title: "AI Response",
-          description: "The AI assistant has responded to your message.",
-        })
-      }, 2000)
-    } else {
+      await MessagingService.sendMessage(
+        selectedConversation,
+        user.uid,
+        user.displayName || user.email || "User",
+        newMessage,
+      )
+
+      setNewMessage("")
+
+      toast({
+        title: "Message Sent",
+        description: "Your message has been delivered successfully.",
+      })
+
+      // If it's an AI conversation, get AI response
+      const currentConv = conversations.find((c) => c.id === selectedConversation)
+      if (currentConv?.type === "ai") {
+        setTimeout(async () => {
+          try {
+            const response = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messages: [{ role: "user", content: newMessage }],
+                context: `Student asking: ${newMessage}`,
+              }),
+            })
+
+            const data = await response.json()
+
+            await MessagingService.sendMessage(
+              selectedConversation,
+              "ai-assistant",
+              "AI Learning Assistant",
+              data.response,
+            )
+          } catch (error) {
+            console.error("AI response error:", error)
+          }
+        }, 1000)
+      }
+    } catch (error) {
+      console.error("Error sending message:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
       setIsTyping(false)
     }
   }
 
   const selectConversation = (conversationId: string) => {
     setSelectedConversation(conversationId)
-    // Mark as read
-    const conversation = messagesData.conversations.find((c) => c.id === conversationId)
-    if (conversation) {
-      conversation.unread = 0
-    }
   }
 
-  const currentConversation = messagesData.conversations.find((c) => c.id === selectedConversation)
+  const currentConversation = conversations.find((c) => c.id === selectedConversation)
 
   return (
     <DashboardLayout>
@@ -226,7 +169,7 @@ export default function MessagesPage() {
 
           {/* Conversations */}
           <div className="flex-1 overflow-y-auto">
-            {messagesData.conversations.map((conversation) => (
+            {conversations.map((conversation) => (
               <div
                 key={conversation.id}
                 className={`p-4 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
@@ -325,18 +268,21 @@ export default function MessagesPage() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messagesData.currentMessages.map((message) => (
-              <div key={message.id} className={`flex ${message.isOwn ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[70%] ${message.isOwn ? "order-2" : "order-1"}`}>
-                  {!message.isOwn && (
+            {currentMessages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.senderId === user?.uid ? "justify-end" : "justify-start"}`}
+              >
+                <div className={`max-w-[70%] ${message.senderId === user?.uid ? "order-2" : "order-1"}`}>
+                  {message.senderId !== user?.uid && (
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium">{message.sender}</span>
+                      <span className="text-sm font-medium">{message.senderName}</span>
                       <span className="text-xs text-gray-500">{message.timestamp}</span>
                     </div>
                   )}
                   <div
                     className={`rounded-lg p-3 ${
-                      message.isOwn
+                      message.senderId === user?.uid
                         ? "bg-blue-600 text-white"
                         : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
                     }`}
@@ -355,7 +301,7 @@ export default function MessagesPage() {
                       </div>
                     )}
                   </div>
-                  {message.isOwn && (
+                  {message.senderId === user?.uid && (
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <span className="text-xs text-gray-500">{message.timestamp}</span>
                       {message.status === "delivered" && <Check className="h-3 w-3 text-gray-400" />}
@@ -404,7 +350,8 @@ export default function MessagesPage() {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {messagesData.aiSuggestions.map((suggestion, index) => (
+                {/* TODO: Replace with AI suggestions from Firebase */}
+                {/* {messagesData.aiSuggestions.map((suggestion, index) => (
                   <Button
                     key={index}
                     size="sm"
@@ -414,7 +361,7 @@ export default function MessagesPage() {
                   >
                     {suggestion}
                   </Button>
-                ))}
+                ))} */}
               </div>
             </div>
           )}

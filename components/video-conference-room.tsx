@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -138,6 +138,69 @@ export function VideoConferenceRoom({ isActive, onStart }: VideoConferenceRoomPr
   const videoRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
+  // Add these state variables
+  const [roomUrl, setRoomUrl] = useState<string>("")
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false)
+  const [availableRooms, setAvailableRooms] = useState<any[]>([])
+
+  // Add this function to create a room
+  const createVideoRoom = async () => {
+    setIsCreatingRoom(true)
+    try {
+      const response = await fetch("/api/video/create-room", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          roomName: `study-session-${Date.now()}`,
+          maxParticipants: 10,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create room")
+      }
+
+      const data = await response.json()
+      setRoomUrl(data.roomUrl)
+
+      toast({
+        title: "Room Created!",
+        description: `Video room created successfully. Room: ${data.roomName}`,
+      })
+
+      onStart() // Start the conference UI
+    } catch (error) {
+      console.error("Error creating room:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create video room. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCreatingRoom(false)
+    }
+  }
+
+  // Add this function to load available rooms
+  const loadAvailableRooms = async () => {
+    try {
+      const response = await fetch("/api/video/rooms")
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableRooms(data.rooms)
+      }
+    } catch (error) {
+      console.error("Error loading rooms:", error)
+    }
+  }
+
+  // Load rooms on component mount
+  useEffect(() => {
+    loadAvailableRooms()
+  }, [])
+
   const toggleMute = () => {
     setIsMuted(!isMuted)
     toast({
@@ -235,9 +298,9 @@ export function VideoConferenceRoom({ isActive, onStart }: VideoConferenceRoomPr
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-md mx-auto">
-                <Button onClick={onStart} className="h-12">
+                <Button onClick={createVideoRoom} className="h-12" disabled={isCreatingRoom}>
                   <Video className="h-5 w-5 mr-2" />
-                  Start Conference
+                  {isCreatingRoom ? "Creating Room..." : "Start Conference"}
                 </Button>
                 <Button variant="outline" className="h-12">
                   <Users className="h-5 w-5 mr-2" />
@@ -359,6 +422,18 @@ export function VideoConferenceRoom({ isActive, onStart }: VideoConferenceRoomPr
                 )}
               </div>
             </div>
+
+            {roomUrl && (
+              <div className="absolute inset-4 bg-white rounded-lg">
+                <iframe
+                  src={roomUrl}
+                  width="100%"
+                  height="100%"
+                  allow="camera; microphone; fullscreen; speaker; display-capture"
+                  className="rounded-lg"
+                />
+              </div>
+            )}
 
             {/* Participant Thumbnails */}
             <div className="absolute top-4 right-4 space-y-2 max-h-96 overflow-y-auto">
