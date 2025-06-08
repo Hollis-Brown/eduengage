@@ -1,493 +1,76 @@
 "use client"
-
-import { useState, useRef, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useChat } from "ai/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Brain,
-  Send,
-  X,
-  Sparkles,
-  Calculator,
-  Globe,
-  Lightbulb,
-  MessageSquare,
-  TrendingUp,
-  FileText,
-  Video,
-  Mic,
-  MicOff,
-} from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Send, Bot, User } from "lucide-react"
 
-interface AIAssistantProps {
-  isOpen: boolean
-  onClose: () => void
-  userRole?: string
-}
-
-interface Message {
-  id: number
-  type: "user" | "ai"
-  content: string
-  timestamp: Date
-  suggestions?: string[]
-}
-
-export function AIAssistant({ isOpen, onClose, userRole }: AIAssistantProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      type: "ai",
-      content:
-        "Hello! I'm your AI learning assistant. I can help you with studies, answer questions, create learning plans, and much more. What would you like to explore today?",
-      timestamp: new Date(),
-      suggestions: [
-        "Help me understand calculus",
-        "Create a study schedule",
-        "Explain quantum physics",
-        "Generate practice questions",
-      ],
-    },
-  ])
-  const [inputMessage, setInputMessage] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
-  const [isListening, setIsListening] = useState(false)
-  const [activeTab, setActiveTab] = useState("chat")
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { toast } = useToast()
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  const sendMessage = async () => {
-    if (!inputMessage.trim()) return
-
-    const userMessage: Message = {
-      id: messages.length + 1,
-      type: "user",
-      content: inputMessage,
-      timestamp: new Date(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setInputMessage("")
-    setIsTyping(true)
-
-    // Get real AI response
-    try {
-      const aiResponse = await generateAIResponse(inputMessage)
-      setMessages((prev) => [...prev, aiResponse])
-    } catch (error) {
-      console.error("Error getting AI response:", error)
-      const errorMessage: Message = {
-        id: messages.length + 2,
-        type: "ai",
-        content: "I'm sorry, I encountered an error. Please try again.",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsTyping(false)
-    }
-  }
-
-  const generateAIResponse = async (userInput: string): Promise<Message> => {
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: userInput }],
-          context: `${userRole} user asking about: ${userInput}`,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to get AI response")
-      }
-
-      const data = await response.json()
-
-      return {
-        id: messages.length + 2,
-        type: "ai",
-        content: data.response,
-        timestamp: new Date(),
-        suggestions: data.suggestions,
-      }
-    } catch (error) {
-      console.error("AI response error:", error)
-      return {
-        id: messages.length + 2,
-        type: "ai",
-        content: "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.",
-        timestamp: new Date(),
-        suggestions: ["Try again", "Ask a different question", "Check connection"],
-      }
-    }
-  }
-
-  const handleSuggestionClick = (suggestion: string) => {
-    setInputMessage(suggestion)
-  }
-
-  const toggleVoiceInput = () => {
-    setIsListening(!isListening)
-    if (!isListening) {
-      toast({
-        title: "Voice Input Active",
-        description: "Speak now... (This is a demo feature)",
-      })
-      // Simulate voice input
-      setTimeout(() => {
-        setIsListening(false)
-        setInputMessage("How do I solve quadratic equations?")
-      }, 3000)
-    }
-  }
-
-  if (!isOpen) return null
+export function AIAssistant() {
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    api: "/api/chat",
+  })
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="w-full max-w-4xl h-[80vh] bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <Brain className="h-6 w-6 text-white" />
+    <Card className="h-[600px] flex flex-col">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Bot className="h-5 w-5" />
+          AI Learning Assistant
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col gap-4">
+        <ScrollArea className="flex-1 pr-4">
+          <div className="space-y-4">
+            {messages.length === 0 && (
+              <div className="text-center text-muted-foreground py-8">
+                Ask me anything about your studies! I'm here to help you learn.
               </div>
-              <div>
-                <h2 className="text-xl font-bold">AI Learning Assistant</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Your intelligent study companion</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 flex">
-            {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                <TabsList className="grid w-full grid-cols-4 m-4 mb-0">
-                  <TabsTrigger value="chat">Chat</TabsTrigger>
-                  <TabsTrigger value="tools">AI Tools</TabsTrigger>
-                  <TabsTrigger value="insights">Insights</TabsTrigger>
-                  <TabsTrigger value="help">Quick Help</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="chat" className="flex-1 flex flex-col p-4 pt-2">
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
-                      >
-                        <div
-                          className={`max-w-[80%] rounded-lg p-3 ${
-                            message.type === "user" ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-gray-800"
-                          }`}
-                        >
-                          <p className="text-sm">{message.content}</p>
-                          <p className="text-xs opacity-70 mt-1">
-                            {message.timestamp.toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </p>
-
-                          {message.suggestions && (
-                            <div className="mt-3 space-y-2">
-                              <p className="text-xs font-medium opacity-80">Suggestions:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {message.suggestions.map((suggestion, index) => (
-                                  <Button
-                                    key={index}
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-xs h-7"
-                                    onClick={() => handleSuggestionClick(suggestion)}
-                                  >
-                                    {suggestion}
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+            )}
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div className={`flex gap-2 max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                  <div className="flex-shrink-0">
+                    {message.role === "user" ? (
+                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                        <User className="h-4 w-4 text-primary-foreground" />
                       </div>
-                    ))}
-
-                    {isTyping && (
-                      <div className="flex justify-start">
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-                          <div className="flex items-center gap-2">
-                            <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                              <div
-                                className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                style={{ animationDelay: "0.1s" }}
-                              ></div>
-                              <div
-                                className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                style={{ animationDelay: "0.2s" }}
-                              ></div>
-                            </div>
-                            <span className="text-sm text-gray-500">AI is thinking...</span>
-                          </div>
-                        </div>
+                    ) : (
+                      <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                        <Bot className="h-4 w-4 text-secondary-foreground" />
                       </div>
                     )}
-                    <div ref={messagesEndRef} />
                   </div>
-
-                  {/* Input Area */}
-                  <div className="flex gap-2">
-                    <div className="flex-1 relative">
-                      <Input
-                        placeholder="Ask me anything about your studies..."
-                        value={inputMessage}
-                        onChange={(e) => setInputMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                        className="pr-12"
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="absolute right-1 top-1 h-8 w-8"
-                        onClick={toggleVoiceInput}
-                      >
-                        {isListening ? <MicOff className="h-4 w-4 text-red-500" /> : <Mic className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    <Button onClick={sendMessage} disabled={!inputMessage.trim()}>
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="tools" className="flex-1 p-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardHeader className="text-center pb-2">
-                        <Calculator className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                        <CardTitle className="text-lg">Math Solver</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          Step-by-step solutions for any math problem
-                        </p>
-                        <Button className="w-full">Open Calculator</Button>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardHeader className="text-center pb-2">
-                        <FileText className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                        <CardTitle className="text-lg">Essay Helper</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          Writing assistance and grammar checking
-                        </p>
-                        <Button className="w-full">Start Writing</Button>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardHeader className="text-center pb-2">
-                        <Globe className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                        <CardTitle className="text-lg">Language Tutor</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          Practice conversations and translations
-                        </p>
-                        <Button className="w-full">Practice Now</Button>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardHeader className="text-center pb-2">
-                        <Lightbulb className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                        <CardTitle className="text-lg">Study Planner</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">AI-optimized study schedules</p>
-                        <Button className="w-full">Create Plan</Button>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="insights" className="flex-1 p-4">
-                  <div className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5 text-green-600" />
-                          Learning Progress
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span>Mathematics</span>
-                            <Badge variant="secondary">85% Complete</Badge>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span>Science</span>
-                            <Badge variant="secondary">72% Complete</Badge>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span>Literature</span>
-                            <Badge variant="secondary">91% Complete</Badge>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Brain className="h-5 w-5 text-blue-600" />
-                          AI Recommendations
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                            <p className="text-sm font-medium">Focus Area</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Spend more time on calculus derivatives - you're close to mastery!
-                            </p>
-                          </div>
-                          <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                            <p className="text-sm font-medium">Strength</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Excellent progress in essay writing. Consider advanced topics.
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="help" className="flex-1 p-4">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Quick Commands</h3>
-                    <div className="grid grid-cols-1 gap-3">
-                      {[
-                        { command: "Explain [topic]", description: "Get detailed explanations on any subject" },
-                        { command: "Solve [problem]", description: "Step-by-step problem solving" },
-                        { command: "Create quiz on [topic]", description: "Generate practice questions" },
-                        { command: "Summarize [text]", description: "Get concise summaries" },
-                        { command: "Help with homework", description: "Guided homework assistance" },
-                        { command: "Study plan for [subject]", description: "Personalized study schedules" },
-                      ].map((item, index) => (
-                        <div
-                          key={index}
-                          className="p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                        >
-                          <p className="font-medium text-sm">{item.command}</p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">{item.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            {/* Sidebar */}
-            <div className="w-64 border-l p-4 space-y-4">
-              <div>
-                <h3 className="font-semibold mb-2">Quick Stats</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Questions Asked</span>
-                    <Badge variant="outline">47</Badge>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Problems Solved</span>
-                    <Badge variant="outline">23</Badge>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Study Hours</span>
-                    <Badge variant="outline">12.5</Badge>
+                  <div
+                    className={`rounded-lg px-3 py-2 ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   </div>
                 </div>
               </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Recent Topics</h3>
-                <div className="space-y-2">
-                  {["Calculus", "Physics", "Essay Writing", "Chemistry"].map((topic) => (
-                    <div
-                      key={topic}
-                      className="text-sm p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      {topic}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">AI Capabilities</h3>
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-3 w-3 text-yellow-500" />
-                    <span>Real-time explanations</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Brain className="h-3 w-3 text-blue-500" />
-                    <span>Adaptive learning</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-3 w-3 text-green-500" />
-                    <span>Natural conversation</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Video className="h-3 w-3 text-purple-500" />
-                    <span>Visual demonstrations</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </ScrollArea>
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Input
+            value={input}
+            onChange={handleInputChange}
+            placeholder="Ask me anything..."
+            disabled={isLoading}
+            className="flex-1"
+          />
+          <Button type="submit" disabled={isLoading || !input.trim()}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
